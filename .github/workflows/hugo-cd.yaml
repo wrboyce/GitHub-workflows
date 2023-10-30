@@ -43,7 +43,7 @@ jobs:
         with:
           hugo-version: ${{ inputs.HUGO_VERSION }}
           extended: true
-      - uses: hashicorp/setup-terraform@v2
+      - uses: hashicorp/setup-terraform@v3
         with:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
           terraform_wrapper: false
