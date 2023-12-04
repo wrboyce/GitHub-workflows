@@ -14,14 +14,11 @@ on: # yamllint disable-line rule:truthy
 
 jobs:
   ci:
-    uses: ./.github/workflows/hugo-ci.yaml
+    uses: .github/workflows/hugo-ci.yaml@master
     secrets:
       TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
-    with:
-      HUGO_VERSION: ${{ inputs.HUGO_VERSION }}
 
   deploy:
-    if: ${{ !endsWith(github.repository, '-template') }}
     needs:
       - ci
     runs-on: ubuntu-latest
@@ -48,6 +45,12 @@ jobs:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
           terraform_wrapper: false
 
+      - name: Cache terraform modules/providers
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/infra/.terraform
+          key: ${{ runner.os }}-terraform-${{ hashFiles('infra/.terraform.lock.hcl') }}
+
       - name: Run `terraform init`
         run: terraform -chdir=infra init -input=false
       - name: Run `terraform apply`
@@ -55,22 +58,28 @@ jobs:
       - name: Setup Environment
         id: aws
         run: |
+          AWS_CLOUDFRONT_DISTRIBUTION="$(terraform -chdir=infra output -raw cloudfront_distribution)"
           AWS_REGION="$(terraform -chdir=infra output -raw aws_region)"
           AWS_ROLE="$(terraform -chdir=infra output -raw ci_aws_role)"
           AWS_S3_BUCKET_NAME="$(terraform -chdir=infra output -raw aws_s3_bucket_name)"
           echo "aws_region=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "aws_role=$AWS_ROLE" >> $GITHUB_OUTPUT
           echo "aws_bucket_name=$AWS_S3_BUCKET_NAME" >> $GITHUB_OUTPUT
+          echo "aws_cloudfront_distribution_id=$CLOUDFRONT_DISTRIBUTION_ID" >> $GITHUB_OUTPUT
 
       - name: Configure Hugo
         run: |
+          touch config/production/config.yaml
+          yq '.cachedir = "${{ runner.temp }}/hugo-cache"' config/production/config.yaml
           yq -i '.targets[0].name = "production"' config/production/deployment.yaml
           yq -i '.targets[0].URL = "s3://${{ steps.aws.outputs.aws_bucket_name }}?region=${{ steps.aws.outputs.aws_region }}"' config/production/deployment.yaml
+          yq -i '.targets[0].cloudFrontDistributionID = "${{ steps.aws.outputs.cloudfront_distribution_id }}"' config/production/deployment.yaml
+          hugo config --format=yaml
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ steps.aws.outputs.aws_region }}
           role-to-assume: ${{ steps.aws.outputs.aws_role }}
 
-      - name: Sync S3 Bucket
+      - name: Hugo Deploy
         run: PATH=.:$PATH make deploy
