@@ -46,7 +46,7 @@ jobs:
           terraform_wrapper: false
 
       - name: Cache terraform modules/providers
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/infra/.terraform
           key: ${{ runner.os }}-terraform-${{ hashFiles('infra/.terraform.lock.hcl') }}

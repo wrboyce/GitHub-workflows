@@ -46,7 +46,7 @@ jobs:
         with:
           hugo-version: ${{ inputs.HUGO_VERSION }}
           extended: true
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/hugo-cache/modules
           key: ${{ runner.os }}-hugomod-${{ hashFiles('**/go.sum') }}
@@ -70,7 +70,7 @@ jobs:
         with:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
       - name: Cache terraform modules/providers
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/infra/.terraform
           key: ${{ runner.os }}-terraform-${{ hashFiles('infra/.terraform.lock.hcl') }}
